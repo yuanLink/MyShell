@@ -1,0 +1,194 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
+// #include <readline/readline.h>
+// #include <readline/history.h>
+
+extern void mysys(char *argv);
+char build_in_char[] = "|<>";
+
+char* readline(char* s){
+	printf("%s", s);
+	fflush(0);
+	// char t;
+	char *line = (char*)malloc(sizeof(char)*80);
+	// int index = 0;
+	read(0, line, 80);
+	int t = 0;
+	for(t = 0; line[t]!= '\n'&&t!=79; t++);
+	line[t] = '\0';
+	/*
+	   while(read(0, &t, 1)&&index<79){
+	   line[index++] = t;
+	   }
+	   */
+	// printf("%s", line);
+	// fflush(0);
+	// line[index] = '\0';
+	return line;
+}
+
+void add_history(char* line){
+	int fd = open("mylog.txt", O_RDWR| O_APPEND|O_CREAT, 0666);
+	char* end = "\n";
+	if(fd <0){
+		perror("Can't not open mylog.txt");
+	}
+	if(write(fd, line, 80)<0){
+		perror("Write to log.txt error");
+	}
+	write(fd, end, 1);
+	return ;
+}
+char* myreadline(){
+	static char* line_read = NULL;
+	if(line_read){
+		free(line_read);
+		line_read = NULL;
+	}
+	line_read = readline("$ ");
+	int length = strlen(line_read);
+	line_read[length] = '\0';
+	/*
+	   if (line_read && *line_read){
+	   add_history(line_read);
+	   }
+	   */
+	return line_read;
+}
+
+/* *************************
+ * BuildIn
+ * to realize cmd with build program
+ * @char* str:input str
+ * if exitst, will return 1,else return 0
+ *
+ * *************************
+ */
+int BuildIn(char* str){
+	char *argv;
+	int exist = 0;
+	// printf("result %s.", str);
+	// int i = strcpy(str, "exit");
+	// printf("i is %d",i);
+	if(str[0] == 'c' && str[1] == 'd'){
+		argv = &str[3];
+		int fd;
+		if((fd = open(argv, O_RDONLY)) <0){
+			perror("oops... can not open");
+			return 0;
+		}
+		fchdir(fd);
+		exist = 1;
+	}
+	else if (strcmp(str, "exit")==0){
+		// printf("exit cmd\n");
+		exit(0);
+	}
+	return exist;
+}
+
+/********************************
+ *			flowCheck
+ * check each flow and change it .
+ * In this function ,it will create a pipe, use p[0] to save stdin and 
+ * p[1] to save stdout.
+ * 
+ * param str: we will check whether it is has flow change float
+ * 
+ * return a pipe call fd, fd[0] default is stdin, fd[1] is stdout
+ ********************************/
+int* flowCheck(char *str){
+	static int fd[2];
+	int temp_fd;
+	char* filename = malloc(sizeof(char)*40);
+	// pipe(fd);
+	fd[0] = 0;fd[1] = 1;
+	int length = strlen(str);
+	int i = 0, j = 0;
+	for(i = 0; i < length; i++){
+		// if this is a stdin change 
+		if(str[i] == '<'){
+			i++;
+			// find the begin of this str
+			while(str[i] == ' ') i++;
+			// find the end of this str
+			j = i;
+			while(str[j]!=' '&&(str[j]!='<'||str[j]!='>')&&str[j]!='\0')j++;
+			memcpy(filename, &str[i], j - i);
+			temp_fd = open(filename, O_CREAT|O_RDONLY, 0666);
+			fd[0] = temp_fd;
+		}
+		// stdout change
+		else if(str[i] == '>'){
+			i++;
+			// find the begin of this str
+			while(str[i] == ' ') i++;
+			// find the end of this str
+			j = i;
+			while(str[j]!=' '&&(str[j]!='<'||str[j]!='>')&&str[j]!='\0')j++;
+			memcpy(filename, &str[i], j - i);
+			temp_fd = open(filename, O_CREAT|O_WRONLY, 0666);
+			fd[1] = temp_fd;
+		}
+	}
+	free(filename);
+	return fd;
+}
+/********************************
+*			getCmd
+* get first words as cmd
+* 
+* param str: the input line
+* 
+* return a str that we check it as cmd
+* CAUTION! return str should be free
+**********************************/
+char* getCmd(char* str){
+	char* cmd = (char*)malloc(sizeof(char)*30);
+	memset(cmd, '\0', 30);
+	int i = 0;
+	int length = strlen(str);
+	// int j = 0;
+	for(i = 0; i < length; i++){
+		if(str[i]=='|'||str[i]=='<'||str[i]=='>')
+			break;
+	}
+	memcpy(cmd, str, i);
+	return cmd;	
+}
+int main(int argc , char* argv[]){
+	// int i = 0;
+	int result = 0;
+	int outTemp, inTemp;
+	int* fds;
+	// char* path;
+	while(1){
+		char* str = myreadline();
+		char* cmd = getCmd(str);
+		// first ,check whether is build_program
+		result = BuildIn(str);
+		fds = flowCheck(str);
+		if(result ==0){
+			// redirect pipe
+			outTemp = dup(1);
+			dup2(fds[1], 1);
+			// close(fds[1]);
+
+			inTemp = dup(0);
+			dup2(fds[0], 0);
+			// close(fds[0]);
+			mysys(cmd);
+			close(fds[1]);
+			close(fds[0]);
+			// finally ,return pipe
+			dup2(inTemp, 0);
+			dup2(outTemp,1);
+			// and free cmd
+			free(cmd);
+		}
+	}
+	return 0;
+}

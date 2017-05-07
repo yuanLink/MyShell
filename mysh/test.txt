@@ -1,0 +1,12 @@
+bin
+file2.txt
+Makefile
+mylog.txt
+mysh
+mysys.c
+mysys.o
+sh1.c
+sh2.c
+sh.c
+sh.o
+test.txt
