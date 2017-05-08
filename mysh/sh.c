@@ -139,14 +139,14 @@ int* flowCheck(char *str){
 	return fd;
 }
 /********************************
-*			getCmd
-* get first words as cmd
-* 
-* param str: the input line
-* 
-* return a str that we check it as cmd
-* CAUTION! return str should be free
-**********************************/
+ *			getCmd
+ * get first words as cmd
+ * 
+ * param str: the input line
+ * 
+ * return a str that we check it as cmd
+ * CAUTION! return str should be free
+ **********************************/
 char* getCmd(char* str){
 	char* cmd = (char*)malloc(sizeof(char)*30);
 	memset(cmd, '\0', 30);
@@ -189,6 +189,7 @@ int main(int argc , char* argv[]){
 	p[0] = 0;p[1] = 1;
 	p_ = NULL;
 	int pos = 0, index = 0;
+	int debug = 1;
 	char temp[1024];
 	// char* path;
 	while(1){
@@ -200,22 +201,25 @@ int main(int argc , char* argv[]){
 		index = 0;
 		// printf("result is %d\n",result);
 		if(result ==0){
+			p_ = NULL;
 			// redirect pipe
 			inTemp = dup(0);
-			dup2(fds[0], 0);
+			if(dup2(fds[0], 0)==-1)
+				perror("out pipe");
 			close(fds[0]);
 
 			outTemp = dup(1);
 			// dup2(fds[1], 1);
 			// we should check whether there are pipe
 			pos = getChar(&str[index], '|');
+			pipe(p);
 			// printf("pos is %d\n", pos);
 			while(pos!=-1){
 				// give a pipe to it 
-				pipe(p);
 				//write(outTemp, "create pipe\n", 12);
 				// change stdout to this pipe output
-				dup2(p[1], 1);
+				if(dup2(p[1], 1)==-1)
+					perror("dup2 to p[1] error");
 				close(p[1]);
 				// get cmd and try to execute
 				cmd = getCmd(&str[index]);
@@ -224,7 +228,7 @@ int main(int argc , char* argv[]){
 				index = pos + 1;
 				// write to pipe
 				mysys(cmd);
-				// read(1, temp, 10);
+				// read(p[0], temp, 10);
 				// write(outTemp, temp ,10);
 				// fflush(0);
 				// if p_ is not empty , remember to close last write pipe
@@ -233,10 +237,14 @@ int main(int argc , char* argv[]){
 					close(p_[0]);
 				}
 				// this pipe has write a new infomation ,then we need to lets next cmd to read it 
-				dup2(p[0], 0);
+				if(dup2(p[0], 0)!=0)
+					perror("in pipe");
 				// use p_ to record last pipe
 				p_ = p;
 				// close read pipe
+				// read(p[0], temp, 10);
+				// write(outTemp, temp ,10);
+
 				close(p[0]);
 				pos = getChar(&str[index],'|');
 				// write(outTemp, "\ncontinue", 9);
@@ -245,25 +253,27 @@ int main(int argc , char* argv[]){
 			dup2(fds[1], 1);
 			close(fds[1]);
 			cmd = getCmd(&str[index]);
-			// write(fds[1], "\nout...", 7);
+			// if(debug++ ==2){
+			// write(1, "\nout...", 7);
 			// write(outTemp, cmd, 7);
-			// read(0, temp ,120);
-			// write(outTemp, temp ,120);
+			// read(0, temp ,3);
+			// write(outTemp, temp ,3);
+			// }
 			mysys(cmd);
-
+			fflush(NULL);
 			/*
-			if(fds[1]!=1);
-				close(fds[1]);
-			if(fds[0]!=0)
-				close(fds[0]);
-			*/
+			   if(fds[1]!=1);
+			   close(fds[1]);
+			   if(fds[0]!=0)
+			   close(fds[0]);
+			   */
 			// finally ,return pipe
 			dup2(inTemp, 0);
 			close(inTemp);
 			dup2(outTemp,1);
 			close(outTemp);
 
-			printf("pos is %d, now cmd is %s\n",pos, cmd);
+			// printf("pos is %d, now cmd is %s\n",pos, cmd);
 			// and free cmd
 			free(cmd);
 			// write(fds[1], "\nfinish", 7);
