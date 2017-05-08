@@ -1,7 +1,7 @@
 # all: mysh
 
 mysh: sh.o mysys.o
-	gcc -Wall sh.o mysys.o -o mysh
+	gcc -Wall -g sh.o mysys.o -o mysh
 
 sh.o: sh.c
 	gcc -c -Wall sh.c

@@ -14,6 +14,7 @@ char* readline(char* s){
 	fflush(0);
 	// char t;
 	char *line = (char*)malloc(sizeof(char)*80);
+	memset(line, '\0', 80);
 	// int index = 0;
 	read(0, line, 80);
 	int t = 0;
@@ -105,7 +106,7 @@ int* flowCheck(char *str){
 	int temp_fd;
 	char* filename = malloc(sizeof(char)*40);
 	// pipe(fd);
-	fd[0] = 0;fd[1] = 1;
+	fd[0] = dup(0);fd[1] = dup(1);
 	int length = strlen(str);
 	int i = 0, j = 0;
 	for(i = 0; i < length; i++){
@@ -159,11 +160,36 @@ char* getCmd(char* str){
 	memcpy(cmd, str, i);
 	return cmd;	
 }
+
+/********************************
+ *			getChar
+ * get char index if exist ,else return -1
+ *
+ * char* str: the str that we need to find 
+ * char* chr: chr that we need to find
+ *
+ * return: if find , it will return the first time it appear,
+ * else it will return -1
+ *
+ *******************************/
+int getChar(char* str, char chr){
+	int index = 0, length = strlen(str);
+	for(index = 0; index<length; index++){
+		if(str[index] == chr)
+			return index;
+	}
+	return -1;
+}
 int main(int argc , char* argv[]){
 	// int i = 0;
 	int result = 0;
 	int outTemp, inTemp;
 	int* fds;
+	int p[2], *p_;
+	p[0] = 0;p[1] = 1;
+	p_ = NULL;
+	int pos = 0, index = 0;
+	char temp[1024];
 	// char* path;
 	while(1){
 		char* str = myreadline();
@@ -171,23 +197,76 @@ int main(int argc , char* argv[]){
 		// first ,check whether is build_program
 		result = BuildIn(str);
 		fds = flowCheck(str);
+		index = 0;
+		// printf("result is %d\n",result);
 		if(result ==0){
 			// redirect pipe
-			outTemp = dup(1);
-			dup2(fds[1], 1);
-			// close(fds[1]);
-
 			inTemp = dup(0);
 			dup2(fds[0], 0);
-			// close(fds[0]);
-			mysys(cmd);
-			close(fds[1]);
 			close(fds[0]);
+
+			outTemp = dup(1);
+			// dup2(fds[1], 1);
+			// we should check whether there are pipe
+			pos = getChar(&str[index], '|');
+			// printf("pos is %d\n", pos);
+			while(pos!=-1){
+				// give a pipe to it 
+				pipe(p);
+				//write(outTemp, "create pipe\n", 12);
+				// change stdout to this pipe output
+				dup2(p[1], 1);
+				close(p[1]);
+				// get cmd and try to execute
+				cmd = getCmd(&str[index]);
+				// write(outTemp, cmd, sizeof(cmd)+ 6);
+				// write(outTemp, "\n", 1);
+				index = pos + 1;
+				// write to pipe
+				mysys(cmd);
+				// read(1, temp, 10);
+				// write(outTemp, temp ,10);
+				// fflush(0);
+				// if p_ is not empty , remember to close last write pipe
+				if(p_ != NULL){
+					close(p_[1]);
+					close(p_[0]);
+				}
+				// this pipe has write a new infomation ,then we need to lets next cmd to read it 
+				dup2(p[0], 0);
+				// use p_ to record last pipe
+				p_ = p;
+				// close read pipe
+				close(p[0]);
+				pos = getChar(&str[index],'|');
+				// write(outTemp, "\ncontinue", 9);
+			}
+			// close(fds[0]);
+			dup2(fds[1], 1);
+			close(fds[1]);
+			cmd = getCmd(&str[index]);
+			// write(fds[1], "\nout...", 7);
+			// write(outTemp, cmd, 7);
+			// read(0, temp ,120);
+			// write(outTemp, temp ,120);
+			mysys(cmd);
+
+			/*
+			if(fds[1]!=1);
+				close(fds[1]);
+			if(fds[0]!=0)
+				close(fds[0]);
+			*/
 			// finally ,return pipe
 			dup2(inTemp, 0);
+			close(inTemp);
 			dup2(outTemp,1);
+			close(outTemp);
+
+			printf("pos is %d, now cmd is %s\n",pos, cmd);
 			// and free cmd
 			free(cmd);
+			// write(fds[1], "\nfinish", 7);
 		}
 	}
 	return 0;
