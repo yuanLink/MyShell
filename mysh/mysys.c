@@ -84,9 +84,9 @@ void mysysExec(char *argv){
 	}
 	*/
 	// error = execv(strcat(MY_DIR, args[0]), args);
-	error = execv(args[0], args);
+	// error = execv(args[0], args);
 # endif
-	// error = execvp(cmd, args);
+	error = execvp(cmd, args);
 	fflush(0);
 	if (error<0)
 		perror("excel");
