@@ -124,6 +124,11 @@ int* flowCheck(char *str){
 		}
 		// stdout change
 		else if(str[i] == '>'){
+			int isAddition = 0;
+			if(str[i+1] == '>'){
+				i++;
+				isAddition = 1;
+			}
 			i++;
 			// find the begin of this str
 			while(str[i] == ' ') i++;
@@ -131,7 +136,10 @@ int* flowCheck(char *str){
 			j = i;
 			while(str[j]!=' '&&(str[j]!='<'||str[j]!='>')&&str[j]!='\0')j++;
 			memcpy(filename, &str[i], j - i);
-			temp_fd = open(filename, O_CREAT|O_WRONLY, 0666);
+			if(isAddition)
+				temp_fd = open(filename, O_CREAT|O_WRONLY|O_APPEND, 0666);
+			else
+				temp_fd = open(filename, O_CREAT|O_WRONLY, 0666);
 			fd[1] = temp_fd;
 		}
 	}
