@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-#define NR_TOTAL 4000
-#define NR_CPU 2
+#define NR_TOTAL 400000
+#define NR_CPU 100
 #define NR_CHILD (NR_TOTAL/NR_CPU)
 
 typedef struct Param{
@@ -37,24 +37,23 @@ void *child_sum(void *arg){
 }
 
 int main(){
-
 	pthread_t thread[NR_CPU];
 	Param params[NR_CPU];
 	int i = 0;
-	for(i = 0; i< NR_CPU;i++){
+	for(i = 0; i <NR_CPU; i++){
 		Param *param;
-		param = &params[i];
+		param = &param[i];
 		param->start = i * NR_CHILD;
-		param->end = (i+1) * NR_CHILD;
+		param->end = (i + 1) * NR_CHILD;
 		pthread_create(&thread[i], NULL, child_sum, param);
 	}
 	double sum = 0;
 	for(i = 0; i < NR_CPU; i++){
-		Result* result;
+		Result * result;
 		pthread_join(thread[i], (void**)&result);
 		sum += result->sum;
 		free(result);
 	}
-	printf("the answer*4 is %.9f\n",sum*4);
+	printf("the answer is %.9f\n", sum*4);
 	return 0;
-}
+	}
